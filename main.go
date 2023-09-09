@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"sync"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -26,6 +28,7 @@ func initResource() *sdkresource.Resource {
 			sdkresource.WithProcess(),
 			sdkresource.WithContainer(),
 			sdkresource.WithHost(),
+			sdkresource.WithAttributes(attribute.String("service.name", "oteltestsource")),
 		)
 		resource, _ = sdkresource.Merge(
 			sdkresource.Default(),
@@ -48,7 +51,7 @@ func initMeterProvider() *sdkmetric.MeterProvider {
 		Name: "*histogram",
 		Kind: sdkmetric.InstrumentKindHistogram,
 	}, sdkmetric.Stream{
-		Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{MaxSize: 160},
+		Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{MaxSize: 160, NoMinMax: true, MaxScale: 20},
 	})
 
 	mp := sdkmetric.NewMeterProvider(
@@ -79,15 +82,15 @@ func main() {
 		log.Fatalf("new histogram failed: %v", err)
 		return
 	}
-
-	histogram.Record(context.Background(), 100)
-	histogram.Record(context.Background(), 200)
 	
+	v := rand.Float64()*1000
 	scanner := bufio.NewScanner(os.Stdin)
 	scan := func() bool {
-		fmt.Printf("Set metric (current: %v): ", 1)
+		fmt.Printf("Last observation: %v\n", v)
 		return scanner.Scan()
 	}
 	for scan() {
+		histogram.Record(context.Background(), v)
+		v = rand.Float64()*1000
 	}
 }
