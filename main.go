@@ -41,12 +41,22 @@ func initMeterProvider() *sdkmetric.MeterProvider {
 	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("new otlp metric grpc exporter failed: %v", err)
+		return nil
 	}
+
+	v := sdkmetric.NewView(sdkmetric.Instrument{
+		Name: "*histogram",
+		Kind: sdkmetric.InstrumentKindHistogram,
+	}, sdkmetric.Stream{
+		Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{MaxSize: 160},
+	})
 
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
 		sdkmetric.WithResource(initResource()),
+		sdkmetric.WithView(v),
 	)
+
 	otel.SetMeterProvider(mp)
 	return mp
 }
